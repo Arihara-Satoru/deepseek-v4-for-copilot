@@ -8,6 +8,7 @@ import { LANGUAGE_MODEL_CHAT_SYSTEM_ROLE } from '../../consts';
 import { safeStringify, toWellFormedString } from '../../json';
 import { logger } from '../../logger';
 import type { DeepSeekMessage, DeepSeekRequest } from '../../types';
+import { getMessageTextContent } from '../message-content';
 import { parseReplayMarkerData, REPLAY_MARKER_MIME } from '../replay';
 import type { ConversationSegment } from '../segment';
 import { ACTIVATE_TOOL_PREFIX } from '../tools/consts';
@@ -217,7 +218,7 @@ export function dumpDeepSeekRequest(
 		);
 
 		if (msg0 && paths.msg0) {
-			await writeTextFile(paths.msg0, msg0.content);
+			await writeTextFile(paths.msg0, getMessageTextContent(msg0.content));
 		}
 
 		await writeDumpObservation(
@@ -670,7 +671,12 @@ function summarizeDeepSeekSystemPrompt(messages: readonly DeepSeekMessage[]): Sy
 		return createSystemPromptSummary(null, null, '', customizations);
 	}
 
-	return createSystemPromptSummary(0, message.role, message.content ?? '', customizations);
+	return createSystemPromptSummary(
+		0,
+		message.role,
+		getMessageTextContent(message.content ?? ''),
+		customizations,
+	);
 }
 
 function createSystemPromptSummary(
@@ -727,7 +733,7 @@ function summarizeDeepSeekCustomizations(
 	let latestUserHasCustomizationsUpdate = false;
 
 	for (const [index, message] of messages.entries()) {
-		const text = message.content ?? '';
+		const text = getMessageTextContent(message.content ?? '');
 		customizationsUpdateCountInHistory += countLiteral(text, '<customizationsUpdate>');
 		if (message.role === 'user') {
 			latestUserMessageIndex = index;

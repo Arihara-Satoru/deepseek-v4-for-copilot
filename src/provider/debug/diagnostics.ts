@@ -4,6 +4,7 @@ import { getDebugLoggingEnabled } from '../../config';
 import { LANGUAGE_MODEL_CHAT_SYSTEM_ROLE } from '../../consts';
 import { logger } from '../../logger';
 import type { DeepSeekMessage, DeepSeekRequest, DeepSeekTool, DeepSeekUsage } from '../../types';
+import { getMessageTextContent } from '../message-content';
 import { REPLAY_MARKER_MIME, parseFirstReplayMarker } from '../replay';
 import type { ConversationSegment } from '../segment';
 import { ACTIVATE_TOOL_PREFIX } from '../tools/consts';
@@ -1591,6 +1592,7 @@ function summarizeMessage(
 	index: number,
 	followsToolResult: boolean,
 ): CacheTraceMessageSummary {
+	const textContent = getMessageTextContent(message.content);
 	const toolCallArgumentChars =
 		message.tool_calls?.reduce((sum, toolCall) => sum + toolCall.function.arguments.length, 0) ?? 0;
 	const reasoningChars = message.reasoning_content?.length ?? 0;
@@ -1603,21 +1605,21 @@ function summarizeMessage(
 		: ('none' as const);
 	const hasReasoningContent = message.reasoning_content !== undefined;
 	const hasEmptyReasoningContent = hasReasoningContent && reasoningChars === 0;
-	const imageDescriptionCount = countLiteral(message.content, '[Image Description:');
-	const unableImageCount = countLiteral(message.content, IMAGE_DESCRIPTION_UNAVAILABLE);
-	const urlCount = countRegex(message.content, /https?:\/\//g);
-	const codeFenceCount = countLiteral(message.content, '```');
-	const likelyPathCount = countLikelyPaths(message.content);
+	const imageDescriptionCount = countLiteral(textContent, '[Image Description:');
+	const unableImageCount = countLiteral(textContent, IMAGE_DESCRIPTION_UNAVAILABLE);
+	const urlCount = countRegex(textContent, /https?:\/\//g);
+	const codeFenceCount = countLiteral(textContent, '```');
+	const likelyPathCount = countLikelyPaths(textContent);
 
 	return {
 		index,
 		role: message.role,
 		hash: hashString(stableStringify(message)),
-		contentHash: hashString(message.content),
-		contentHeadHash: hashString(message.content.slice(0, HASH_WINDOW_CHARS)),
-		contentTailHash: hashString(message.content.slice(-HASH_WINDOW_CHARS)),
-		contentChars: message.content.length,
-		contentLines: countLines(message.content),
+		contentHash: hashString(textContent),
+		contentHeadHash: hashString(textContent.slice(0, HASH_WINDOW_CHARS)),
+		contentTailHash: hashString(textContent.slice(-HASH_WINDOW_CHARS)),
+		contentChars: textContent.length,
+		contentLines: countLines(textContent),
 		imageDescriptionCount,
 		unableImageCount,
 		urlCount,
@@ -1633,7 +1635,7 @@ function summarizeMessage(
 		missingPostToolReasoning: assistantAfterToolResult && !hasReasoningContent,
 		missingPostToolCallReasoning: afterToolResultKind === 'tool-call' && !hasReasoningContent,
 		missingPostToolFinalReasoning: afterToolResultKind === 'final' && !hasReasoningContent,
-		contentSections: index === 0 ? summarizeSystemPromptSections(message.content) : undefined,
+		contentSections: index === 0 ? summarizeSystemPromptSections(textContent) : undefined,
 	};
 }
 
@@ -1799,6 +1801,7 @@ function summarizeStats(messages: DeepSeekMessage[], toolCount: number): CacheTr
 	let followsToolResult = false;
 
 	for (const message of messages) {
+		const textContent = getMessageTextContent(message.content);
 		if (message.role === 'user') {
 			userMessages += 1;
 		} else if (message.role === 'assistant') {
@@ -1809,33 +1812,33 @@ function summarizeStats(messages: DeepSeekMessage[], toolCount: number): CacheTr
 			systemMessages += 1;
 		}
 
-		totalContentChars += message.content.length;
-		if (message.content.length > LARGE_MESSAGE_CHARS) {
+		totalContentChars += textContent.length;
+		if (textContent.length > LARGE_MESSAGE_CHARS) {
 			largeMessages += 1;
 		}
 
-		const imageDescriptions = countLiteral(message.content, '[Image Description:');
+		const imageDescriptions = countLiteral(textContent, '[Image Description:');
 		if (imageDescriptions > 0) {
 			imageDescriptionMessages += 1;
 			imageDescriptionParts += imageDescriptions;
 		}
-		if (message.content.includes(IMAGE_DESCRIPTION_UNAVAILABLE)) {
+		if (textContent.includes(IMAGE_DESCRIPTION_UNAVAILABLE)) {
 			unableImageMessages += 1;
 		}
 
-		const messageUrlCount = countRegex(message.content, /https?:\/\//g);
+		const messageUrlCount = countRegex(textContent, /https?:\/\//g);
 		if (messageUrlCount > 0) {
 			urlMessages += 1;
 			urlCount += messageUrlCount;
 		}
 
-		const messageCodeFenceCount = countLiteral(message.content, '```');
+		const messageCodeFenceCount = countLiteral(textContent, '```');
 		if (messageCodeFenceCount > 0) {
 			codeFenceMessages += 1;
 			codeFenceCount += messageCodeFenceCount;
 		}
 
-		const messageLikelyPathCount = countLikelyPaths(message.content);
+		const messageLikelyPathCount = countLikelyPaths(textContent);
 		if (messageLikelyPathCount > 0) {
 			likelyPathMessages += 1;
 			likelyPathCount += messageLikelyPathCount;

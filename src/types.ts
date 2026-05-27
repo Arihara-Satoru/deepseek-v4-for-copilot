@@ -1,18 +1,32 @@
 /**
- * Shared types for the DeepSeek Copilot extension.
+ * MiMo Copilot 扩展共用类型定义。
  */
+
+export interface MimoTextContentPart {
+	type: 'text';
+	text: string;
+}
+
+export interface MimoImageContentPart {
+	type: 'image_url';
+	image_url: {
+		url: string;
+	};
+}
+
+export type MimoContentPart = MimoTextContentPart | MimoImageContentPart;
 
 // ---- API request/response types ----
 
-export interface DeepSeekMessage {
+export interface MimoMessage {
 	role: 'system' | 'user' | 'assistant' | 'tool';
-	content: string;
+	content: string | MimoContentPart[];
 	tool_call_id?: string;
-	tool_calls?: DeepSeekToolCall[];
+	tool_calls?: MimoToolCall[];
 	reasoning_content?: string;
 }
 
-export interface DeepSeekToolCall {
+export interface MimoToolCall {
 	id: string;
 	type: 'function';
 	function: {
@@ -21,7 +35,7 @@ export interface DeepSeekToolCall {
 	};
 }
 
-export interface DeepSeekTool {
+export interface MimoTool {
 	type: 'function';
 	function: {
 		name: string;
@@ -30,22 +44,28 @@ export interface DeepSeekTool {
 	};
 }
 
-export interface DeepSeekUsage {
+export interface MimoUsage {
 	prompt_tokens: number;
 	completion_tokens: number;
 	total_tokens: number;
 	prompt_cache_hit_tokens?: number;
 	prompt_cache_miss_tokens?: number;
+	prompt_tokens_details?: {
+		cached_tokens?: number;
+	};
+	completion_tokens_details?: {
+		reasoning_tokens?: number;
+	};
 }
 
-export interface DeepSeekRequest {
+export interface MimoRequest {
 	model: string;
-	messages: DeepSeekMessage[];
+	messages: MimoMessage[];
 	stream: boolean;
 	temperature?: number;
 	top_p?: number;
-	max_tokens?: number;
-	tools?: DeepSeekTool[];
+	max_completion_tokens?: number;
+	tools?: MimoTool[];
 	tool_choice?: 'none' | 'auto' | 'required';
 	thinking?: { type: 'enabled' | 'disabled' };
 	reasoning_effort?: 'high' | 'max';
@@ -54,7 +74,7 @@ export interface DeepSeekRequest {
 	};
 }
 
-export interface DeepSeekStreamChunk {
+export interface MimoStreamChunk {
 	id: string;
 	object: string;
 	created: number;
@@ -77,7 +97,7 @@ export interface DeepSeekStreamChunk {
 		};
 		finish_reason: string | null;
 	}>;
-	usage?: DeepSeekUsage;
+	usage?: MimoUsage;
 }
 
 // ---- Stream callbacks ----
@@ -85,10 +105,10 @@ export interface DeepSeekStreamChunk {
 export interface StreamCallbacks {
 	onContent: (content: string) => void;
 	onThinking: (text: string) => void;
-	onToolCall: (toolCall: DeepSeekToolCall) => void;
+	onToolCall: (toolCall: MimoToolCall) => void;
 	onError: (error: Error) => void;
 	onDone: () => void;
-	onUsage?: (usage: DeepSeekUsage) => void;
+	onUsage?: (usage: MimoUsage) => void;
 }
 
 // ---- Model definitions ----
@@ -108,3 +128,13 @@ export interface ModelDefinition {
 	};
 	requiresThinkingParam: boolean;
 }
+
+/**
+ * 兼容旧实现中的 DeepSeek 命名，避免一次性改动过大。
+ */
+export type DeepSeekMessage = MimoMessage;
+export type DeepSeekToolCall = MimoToolCall;
+export type DeepSeekTool = MimoTool;
+export type DeepSeekUsage = MimoUsage;
+export type DeepSeekRequest = MimoRequest;
+export type DeepSeekStreamChunk = MimoStreamChunk;

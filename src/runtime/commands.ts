@@ -3,19 +3,21 @@ import { EXTERNAL_URLS } from '../consts';
 import { t } from '../i18n';
 import { logger } from '../logger';
 import { ensureRequestDumpRoot } from '../provider/debug';
+import { showWelcome } from './welcome';
 
 export function registerCommands(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('deepseek-copilot.showLogs', () => logger.show()),
-		vscode.commands.registerCommand('deepseek-copilot.openRequestDumpsFolder', () =>
+		vscode.commands.registerCommand('mimo-copilot.showLogs', () => logger.show()),
+		vscode.commands.registerCommand('mimo-copilot.openRequestDumpsFolder', () =>
 			openRequestDumpsFolder(context),
 		),
-		vscode.commands.registerCommand('deepseek-copilot.getApiKey', () =>
-			vscode.env.openExternal(vscode.Uri.parse(EXTERNAL_URLS.deepseek.apiKeys)),
+		vscode.commands.registerCommand('mimo-copilot.getApiKey', () =>
+			vscode.env.openExternal(vscode.Uri.parse(EXTERNAL_URLS.mimo.apiKeys)),
 		),
-		vscode.commands.registerCommand('deepseek-copilot.openSettings', () =>
-			vscode.commands.executeCommand('workbench.action.openSettings', 'deepseek-copilot'),
+		vscode.commands.registerCommand('mimo-copilot.openSettings', () =>
+			vscode.commands.executeCommand('workbench.action.openSettings', 'mimo-copilot'),
 		),
+		vscode.commands.registerCommand('mimo-copilot.openWelcome', () => showWelcome()),
 	);
 }
 

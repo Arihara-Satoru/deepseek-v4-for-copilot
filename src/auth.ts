@@ -1,10 +1,9 @@
 import vscode from 'vscode';
-import { API_KEY_SECRET } from './consts';
+import { API_KEY_SECRET, CONFIG_SECTION } from './consts';
 import { t } from './i18n';
 
 /**
- * Manages DeepSeek API key via VS Code SecretStorage (secure) with
- * fallback to extension settings (less secure, for CI/automation).
+ * 统一管理 MiMo API Key。
  */
 export class AuthManager {
 	private readonly secretStorage: vscode.SecretStorage;
@@ -14,7 +13,7 @@ export class AuthManager {
 	}
 
 	/**
-	 * Get API key. Tries SecretStorage first, then falls back to settings.
+	 * 读取 MiMo 扩展自己的 API Key。
 	 */
 	async getApiKey(): Promise<string | undefined> {
 		const secretKey = await this.secretStorage.get(API_KEY_SECRET);
@@ -22,7 +21,7 @@ export class AuthManager {
 			return secretKey;
 		}
 
-		const config = vscode.workspace.getConfiguration('deepseek-copilot');
+		const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
 		const settingsKey = config.get<string>('apiKey');
 		if (settingsKey?.trim()) {
 			return settingsKey.trim();
@@ -32,14 +31,14 @@ export class AuthManager {
 	}
 
 	/**
-	 * Store API key in SecretStorage.
+	 * 将 API Key 安全写入 SecretStorage。
 	 */
 	async setApiKey(apiKey: string): Promise<void> {
 		await this.secretStorage.store(API_KEY_SECRET, apiKey.trim());
 	}
 
 	/**
-	 * Delete stored API key.
+	 * 仅删除 MiMo 扩展自己的 API Key，不影响旧 DeepSeek 扩展。
 	 */
 	async deleteApiKey(): Promise<void> {
 		await this.secretStorage.delete(API_KEY_SECRET);
@@ -54,7 +53,7 @@ export class AuthManager {
 	}
 
 	/**
-	 * Prompt user to enter API key via input box.
+	 * 通过输入框提示用户填写 API Key。
 	 */
 	async promptForApiKey(): Promise<boolean> {
 		const apiKey = await vscode.window.showInputBox({

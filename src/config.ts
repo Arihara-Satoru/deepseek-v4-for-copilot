@@ -4,20 +4,16 @@ import { CONFIG_SECTION } from './consts';
 export type DebugMode = 'minimal' | 'metadata' | 'verbose';
 
 /**
- * Get DeepSeek API base URL from settings.
- * Falls back to the official endpoint when not configured.
+ * 读取 MiMo API 基址。
+ * 未配置时使用官方 OpenAI 兼容端点。
  */
 export function getBaseUrl(): string {
 	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
-	return config.get<string>('baseUrl') || 'https://api.deepseek.com';
+	return config.get<string>('baseUrl') || 'https://api.xiaomimimo.com/v1';
 }
 
 /**
- * Resolve the API model ID to send to the endpoint.
- *
- * Users can override model IDs via the `modelIdOverrides` setting object
- * (e.g. for third-party API proxies). Falls back to the VS Code model ID
- * when no override is configured.
+ * 解析实际发送给 API 的模型 ID。
  */
 export function getApiModelId(vscodeModelId: string): string {
 	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
@@ -27,8 +23,8 @@ export function getApiModelId(vscodeModelId: string): string {
 }
 
 /**
- * Get the configured max output tokens limit.
- * Returns `undefined` when set to 0 (API default — no limit).
+ * 读取最大输出 token 限制。
+ * 配置为 0 时返回 undefined，交由服务端决定。
  */
 export function getMaxTokens(): number | undefined {
 	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
@@ -37,49 +33,38 @@ export function getMaxTokens(): number | undefined {
 }
 
 /**
- * Diagnostic mode. `verbose` also enables metadata logs.
- *
- * The legacy boolean `debug` setting is still read as a fallback so old
- * settings keep working even if migration cannot update every scope.
+ * 读取调试模式。
  */
 export function getDebugMode(): DebugMode {
 	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
 	const mode = getConfiguredDebugMode(config);
-	if (mode) return mode;
+	if (mode) {
+		return mode;
+	}
 
 	return config.get<boolean>('debug', false) ? 'metadata' : 'minimal';
 }
 
 /**
- * Whether to log privacy-preserving diagnostic debug information.
+ * 是否开启隐私安全诊断日志。
  */
 export function getDebugLoggingEnabled(): boolean {
 	return getDebugMode() !== 'minimal';
 }
 
 /**
- * Whether to write full DeepSeek request payloads to disk.
+ * 是否将完整请求体写入 dump。
  */
 export function getRequestDumpEnabled(): boolean {
 	return getDebugMode() === 'verbose';
 }
 
+/**
+ * 是否启用实验性的工具列表稳定化能力。
+ */
 export function getStabilizeToolListEnabled(): boolean {
 	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
 	return config.get<boolean>('experimental.stabilizeToolList', false);
-}
-
-/**
- * Migrate the legacy boolean `deepseek-copilot.debug` setting to `debugMode`.
- *
- * `debug: true` maps to `debugMode: metadata`; `debug: false` maps to the
- * default `minimal`, so it only needs cleanup.
- */
-export async function migrateLegacyDebugSetting(): Promise<void> {
-	await migrateLegacyDebugSettingAtScope(vscode.ConfigurationTarget.Global);
-	if (vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.length) {
-		await migrateLegacyDebugSettingAtScope(vscode.ConfigurationTarget.Workspace);
-	}
 }
 
 function getConfiguredDebugMode(config: vscode.WorkspaceConfiguration): DebugMode | undefined {
@@ -90,48 +75,6 @@ function getConfiguredDebugMode(config: vscode.WorkspaceConfiguration): DebugMod
 function normalizeDebugMode(value: unknown): DebugMode | undefined {
 	if (value === 'minimal' || value === 'metadata' || value === 'verbose') {
 		return value;
-	}
-	return undefined;
-}
-
-async function migrateLegacyDebugSettingAtScope(
-	target: vscode.ConfigurationTarget,
-	resource?: vscode.Uri,
-): Promise<void> {
-	const config = vscode.workspace.getConfiguration(CONFIG_SECTION, resource);
-	const legacy = config.inspect<boolean>('debug');
-	const mode = config.inspect<DebugMode>('debugMode');
-	const legacyValue = getScopedValue(legacy, target);
-
-	if (legacyValue === undefined) {
-		return;
-	}
-
-	if (legacyValue === true && getScopedValue(mode, target) === undefined) {
-		await config.update('debugMode', 'metadata', target);
-	}
-	await config.update('debug', undefined, target);
-}
-
-function getScopedValue<T>(
-	inspection:
-		| {
-				globalValue?: T;
-				workspaceValue?: T;
-				workspaceFolderValue?: T;
-		  }
-		| undefined,
-	target: vscode.ConfigurationTarget,
-): T | undefined {
-	if (!inspection) {
-		return undefined;
-	}
-
-	if (target === vscode.ConfigurationTarget.Global) {
-		return inspection.globalValue;
-	}
-	if (target === vscode.ConfigurationTarget.Workspace) {
-		return inspection.workspaceValue;
 	}
 	return undefined;
 }

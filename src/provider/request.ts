@@ -1,6 +1,6 @@
 import vscode from 'vscode';
 import { AuthManager } from '../auth';
-import { DeepSeekClient } from '../client';
+import { DeepSeekClient, type MimoClient } from '../client';
 import { getApiModelId, getBaseUrl, getMaxTokens } from '../config';
 import { MODELS } from '../consts';
 import { t } from '../i18n';
@@ -18,9 +18,10 @@ import type { ReplayMarkerMetadata } from './replay';
 import type { ConversationSegment } from './segment';
 import { collectTrailingToolResultIds, prepareRequestTools } from './tools/request';
 import { resolveImageMessages } from './vision/index';
+import type { VisionResolutionResult } from './vision';
 
 export interface PreparedChatRequest {
-	client: DeepSeekClient;
+	client: MimoClient;
 	request: DeepSeekRequest;
 	isThinkingModel: boolean;
 	totalRequestChars: number;
@@ -63,12 +64,19 @@ export async function prepareChatRequest({
 	const client = new DeepSeekClient(getBaseUrl(), apiKey);
 	const modelDef = MODELS.find((m) => m.id === modelInfo.id);
 	const isThinkingModel = modelDef?.capabilities.thinking ?? false;
+	const supportsNativeImageInput = modelDef?.capabilities.imageInput ?? false;
 	const thinkingEffort = getConfiguredThinkingEffort(options as ModelConfigurationOptions);
 	const maxTokens = getMaxTokens();
 
-	const visionResolution = await resolveImageMessages(messages, token, getVisionModel);
+	const visionResolution = supportsNativeImageInput
+		? createNativeMultimodalResolution(messages)
+		: await resolveImageMessages(messages, token, getVisionModel);
 	const resolvedMessages = visionResolution.messages;
-	const deepseekMessages = convertMessages(resolvedMessages, isThinkingModel);
+	const deepseekMessages = convertMessages(
+		resolvedMessages,
+		isThinkingModel,
+		supportsNativeImageInput,
+	);
 	const tools = prepareRequestTools(modelDef?.capabilities.toolCalling, options);
 
 	const totalRequestChars = countMessageChars(deepseekMessages);
@@ -78,7 +86,7 @@ export async function prepareChatRequest({
 		stream: true,
 		tools,
 		tool_choice: tools && tools.length > 0 ? ('auto' as const) : undefined,
-		max_tokens: maxTokens,
+		max_completion_tokens: maxTokens,
 		...(isThinkingModel
 			? {
 					thinking: {
@@ -132,5 +140,30 @@ export async function prepareChatRequest({
 		segment,
 		replayMarkerMetadata: visionResolution.replayMarkerMetadata,
 		visionMarkerTextChars: visionResolution.stats.markerVisionTextChars || undefined,
+	};
+}
+
+/**
+ * 原生多模态模型直接保留图片输入，不走视觉代理。
+ */
+function createNativeMultimodalResolution(
+	messages: readonly vscode.LanguageModelChatRequestMessage[],
+): VisionResolutionResult {
+	return {
+		messages,
+		stats: {
+			inputImageParts: 0,
+			inputImageMessages: 0,
+			currentImageMessages: 0,
+			generatedImageMessages: 0,
+			replayedImageMessages: 0,
+			omittedImageMessages: 0,
+			unavailableImageMessages: 0,
+			failedImageMessages: 0,
+			droppedImageParts: 0,
+			markerVisionTextChars: 0,
+			invalidMarkerVisionMetadata: 0,
+		},
+		replayMarkerMetadata: {},
 	};
 }

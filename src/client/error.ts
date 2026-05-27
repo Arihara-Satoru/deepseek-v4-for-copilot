@@ -3,18 +3,18 @@ import {
 	API_PROVIDER_HTTP_ERROR_LINKS,
 	MAX_DIAGNOSTIC_FIELD_LENGTH,
 	NETWORK_ERROR_CATEGORY_BY_CODE,
-	OFFICIAL_DEEPSEEK_API_HOST,
+	OFFICIAL_MIMO_API_HOST,
 } from './consts';
 import type {
 	ApiProviderId,
-	DeepSeekRequestErrorKind,
 	ErrorActionLink,
 	ErrorActionUrls,
 	HttpErrorLinkDefinition,
 	HttpErrorLinkStatusKey,
+	MimoRequestErrorKind,
 	NetworkErrorCategory,
 } from './types';
-export type { DeepSeekRequestErrorKind, ErrorActionUrls } from './types';
+export type { DeepSeekRequestErrorKind, ErrorActionUrls, MimoRequestErrorKind } from './types';
 
 const errorActionUrlStore = (() => {
 	let current: ErrorActionUrls = {};
@@ -31,8 +31,8 @@ export function setErrorActionUrl(key: keyof ErrorActionUrls, url: string): void
 	errorActionUrlStore.set(key, url);
 }
 
-export class DeepSeekRequestError extends Error {
-	readonly kind: DeepSeekRequestErrorKind;
+export class MimoRequestError extends Error {
+	readonly kind: MimoRequestErrorKind;
 	readonly userSummary: string;
 	readonly diagnosticMessage: string;
 	readonly baseUrl?: string;
@@ -42,7 +42,7 @@ export class DeepSeekRequestError extends Error {
 	constructor(options: {
 		message: string;
 		userSummary?: string;
-		kind: DeepSeekRequestErrorKind;
+		kind: MimoRequestErrorKind;
 		diagnosticMessage?: string;
 		baseUrl?: string;
 		status?: number;
@@ -50,7 +50,7 @@ export class DeepSeekRequestError extends Error {
 		cause?: unknown;
 	}) {
 		super(options.message, { cause: options.cause });
-		this.name = 'DeepSeekRequestError';
+		this.name = 'MimoRequestError';
 		this.kind = options.kind;
 		this.userSummary = options.userSummary ?? options.message;
 		this.diagnosticMessage = options.diagnosticMessage ?? options.message;
@@ -63,7 +63,7 @@ export class DeepSeekRequestError extends Error {
 export async function createHttpError(
 	response: Response,
 	baseUrl: string,
-): Promise<DeepSeekRequestError> {
+): Promise<MimoRequestError> {
 	const responseText = await response.text();
 	const serverMessage = extractServerMessage(responseText);
 	const userSummary = getHttpErrorMessage(
@@ -81,8 +81,8 @@ export async function createHttpError(
 			: undefined,
 	);
 
-	return new DeepSeekRequestError({
-		message: `DeepSeek API request failed with HTTP ${response.status}`,
+	return new MimoRequestError({
+		message: `MiMo API request failed with HTTP ${response.status}`,
 		userSummary,
 		kind: 'http',
 		baseUrl,
@@ -99,8 +99,8 @@ export function normalizeRequestError(error: unknown): Error {
 
 	if (!(error instanceof Error)) {
 		const value = truncateSingleLine(String(error));
-		return new DeepSeekRequestError({
-			message: `DeepSeek request failed with a non-Error value: ${value}`,
+		return new MimoRequestError({
+			message: `MiMo request failed with a non-Error value: ${value}`,
 			userSummary: t('error.unknown', value),
 			kind: 'unknown',
 			diagnosticMessage: `kind=unknown error=${value}`,
@@ -114,10 +114,10 @@ export function normalizeRequestError(error: unknown): Error {
 
 	const code = causeInfo.code ?? causeInfo.name;
 	const userSummary = getNetworkErrorMessage(code);
-	const enhanced = new DeepSeekRequestError({
+	const enhanced = new MimoRequestError({
 		message: code
-			? `DeepSeek request failed due to network error ${code}`
-			: 'DeepSeek request failed due to a network error',
+			? `MiMo request failed due to network error ${code}`
+			: 'MiMo request failed due to a network error',
 		userSummary,
 		kind: 'network',
 		code,
@@ -136,7 +136,7 @@ export function normalizeRequestError(error: unknown): Error {
 
 export function createUserFacingError(error: Error): Error {
 	const message =
-		error instanceof DeepSeekRequestError
+		error instanceof MimoRequestError
 			? formatMarkdownMessage(error.userSummary, getErrorActions(error, errorActionUrlStore.get()))
 			: error.message;
 	const displayError = new Error(message);
@@ -290,7 +290,7 @@ function formatActionLink(action: ErrorActionLink): string {
 }
 
 function getErrorActions(
-	error: DeepSeekRequestError,
+	error: MimoRequestError,
 	actionUrls: ErrorActionUrls,
 ): readonly ErrorActionLink[] {
 	if (error.kind === 'http' && error.status !== undefined && error.baseUrl) {
@@ -369,7 +369,7 @@ function truncateOptional(value: string | undefined): string | undefined {
 function identifyApiProvider(baseUrl: string): ApiProviderId | undefined {
 	try {
 		const hostname = new URL(baseUrl).hostname.toLowerCase();
-		return hostname === OFFICIAL_DEEPSEEK_API_HOST ? 'deepseek' : undefined;
+		return hostname === OFFICIAL_MIMO_API_HOST ? 'mimo' : undefined;
 	} catch {
 		return undefined;
 	}
@@ -382,3 +382,8 @@ function getHttpErrorLinkStatusKey(status: number): HttpErrorLinkStatusKey | und
 
 	return status >= 500 && status <= 599 ? '5xx' : undefined;
 }
+
+/**
+ * 兼容旧命名导出，避免一次性改动过大。
+ */
+export const DeepSeekRequestError = MimoRequestError;

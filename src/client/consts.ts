@@ -6,28 +6,28 @@ import type {
 } from './types';
 import { EXTERNAL_URLS } from '../consts';
 
-export const OFFICIAL_DEEPSEEK_API_HOST = 'api.deepseek.com';
+export const OFFICIAL_MIMO_API_HOST = 'api.xiaomimimo.com';
 export const MAX_DIAGNOSTIC_FIELD_LENGTH = 300;
 
 export const API_PROVIDER_HTTP_ERROR_LINKS: Readonly<
 	Record<HttpErrorLinkStatusKey, Readonly<Partial<Record<ApiProviderId, HttpErrorLinkDefinition>>>>
 > = {
 	401: {
-		deepseek: {
+		mimo: {
 			labelKey: 'error.action.createApiKey',
-			url: EXTERNAL_URLS.deepseek.apiKeys,
+			url: EXTERNAL_URLS.mimo.apiKeys,
 		},
 	},
 	402: {
-		deepseek: {
+		mimo: {
 			labelKey: 'error.action.viewUsage',
-			url: EXTERNAL_URLS.deepseek.usage,
+			url: EXTERNAL_URLS.mimo.usage,
 		},
 	},
 	'5xx': {
-		deepseek: {
-			labelKey: 'error.action.checkDeepSeekStatus',
-			url: EXTERNAL_URLS.deepseek.status,
+		mimo: {
+			labelKey: 'error.action.checkMimoStatus',
+			url: EXTERNAL_URLS.mimo.status,
 		},
 	},
 };

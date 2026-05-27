@@ -1,29 +1,44 @@
 import vscode from 'vscode';
 import { safeStringify } from '../json';
-import type { DeepSeekMessage, DeepSeekTool, DeepSeekToolCall } from '../types';
+import type {
+	MimoContentPart,
+	MimoMessage,
+	MimoTool,
+	MimoToolCall,
+} from '../types';
 import { parseFirstReplayMarker } from './replay';
 
 /**
- * Convert VS Code chat messages to DeepSeek format.
- * Injects marker-replayed reasoning_content for assistant messages.
+ * 将 VS Code 对话消息转换为 MiMo OpenAI 兼容格式。
+ * 当模型支持原生图片输入时，用户消息会保留文本与图片数组内容。
  */
 export function convertMessages(
 	messages: readonly vscode.LanguageModelChatRequestMessage[],
 	isThinkingModel: boolean,
-): DeepSeekMessage[] {
-	const result: DeepSeekMessage[] = [];
+	allowImageInput: boolean,
+): MimoMessage[] {
+	const result: MimoMessage[] = [];
 
 	for (const message of messages) {
 		const role = mapRole(message.role);
 
 		let content = '';
 		let thinkingContent = '';
-		const toolCalls: DeepSeekToolCall[] = [];
+		const toolCalls: MimoToolCall[] = [];
+		const contentParts: MimoContentPart[] = [];
 		const toolResults: Array<{ callId: string; content: string }> = [];
 
 		for (const part of message.content) {
 			if (part instanceof vscode.LanguageModelTextPart) {
 				content += part.value;
+				if (allowImageInput && role === 'user') {
+					contentParts.push({
+						type: 'text',
+						text: part.value,
+					});
+				}
+			} else if (allowImageInput && role === 'user' && isImageDataPart(part)) {
+				contentParts.push(createImageContentPart(part));
 			} else if (isLanguageModelThinkingPart(part)) {
 				thinkingContent += normalizeThinkingPartText(part.value);
 			} else if (part instanceof vscode.LanguageModelToolCallPart) {
@@ -52,7 +67,7 @@ export function convertMessages(
 		if (role === 'assistant') {
 			if (content || toolCalls.length > 0) {
 				const replayMarker = isThinkingModel ? parseFirstReplayMarker(message) : undefined;
-				const msg: DeepSeekMessage = {
+				const msg: MimoMessage = {
 					role: 'assistant' as const,
 					content: content || '',
 				};
@@ -68,10 +83,11 @@ export function convertMessages(
 				result.push(msg);
 			}
 		} else {
-			if (content) {
+			const normalizedContent = normalizeUserOrSystemContent(content, contentParts, allowImageInput);
+			if (normalizedContent) {
 				result.push({
 					role: role as 'user' | 'assistant',
-					content: content,
+					content: normalizedContent,
 				});
 			}
 		}
@@ -122,11 +138,11 @@ function mapRole(role: vscode.LanguageModelChatMessageRole): 'user' | 'assistant
 }
 
 /**
- * Convert VS Code tool definitions to DeepSeek format.
+ * 将 VS Code 工具定义转换为 MiMo/OpenAI 兼容 function schema。
  */
 export function convertTools(
 	tools: readonly vscode.LanguageModelChatTool[] | undefined,
-): DeepSeekTool[] | undefined {
+): MimoTool[] | undefined {
 	if (!tools || tools.length === 0) {
 		return undefined;
 	}
@@ -142,12 +158,12 @@ export function convertTools(
 }
 
 /**
- * Count total characters across all messages to calibrate chars-per-token ratio.
+ * 统计请求字符量，用于动态估算 token 比例。
  */
-export function countMessageChars(messages: DeepSeekMessage[]): number {
+export function countMessageChars(messages: MimoMessage[]): number {
 	let total = 0;
 	for (const msg of messages) {
-		total += msg.content?.length ?? 0;
+		total += getContentChars(msg.content);
 		total += msg.reasoning_content?.length ?? 0;
 		if (msg.tool_calls) {
 			for (const tc of msg.tool_calls) {
@@ -157,4 +173,52 @@ export function countMessageChars(messages: DeepSeekMessage[]): number {
 		}
 	}
 	return total;
+}
+
+/**
+ * 仅当模型支持原生图片输入时，才返回多模态数组内容。
+ */
+function normalizeUserOrSystemContent(
+	textContent: string,
+	contentParts: readonly MimoContentPart[],
+	allowImageInput: boolean,
+): string | MimoContentPart[] | undefined {
+	if (allowImageInput && contentParts.length > 0) {
+		return [...contentParts];
+	}
+
+	return textContent || undefined;
+}
+
+/**
+ * 将本地图片数据转换为 MiMo 文档要求的 data URL。
+ */
+function createImageContentPart(part: vscode.LanguageModelDataPart): MimoContentPart {
+	const encoded = Buffer.from(part.data).toString('base64');
+	return {
+		type: 'image_url',
+		image_url: {
+			url: `data:${part.mimeType};base64,${encoded}`,
+		},
+	};
+}
+
+function getContentChars(content: string | readonly MimoContentPart[]): number {
+	if (typeof content === 'string') {
+		return content.length;
+	}
+
+	let total = 0;
+	for (const part of content) {
+		if (part.type === 'text') {
+			total += part.text.length;
+		} else if (part.type === 'image_url') {
+			total += part.image_url.url.length;
+		}
+	}
+	return total;
+}
+
+function isImageDataPart(part: unknown): part is vscode.LanguageModelDataPart {
+	return part instanceof vscode.LanguageModelDataPart && part.mimeType.startsWith('image/');
 }

@@ -81,7 +81,7 @@ export function streamChatCompletion({
 					);
 				},
 
-				onUsage: (usage) => {
+				onUsage: (usage: DeepSeekUsage) => {
 					const charsPerToken = updateCharsPerToken(
 						prepared.totalRequestChars,
 						usage,
@@ -94,7 +94,7 @@ export function streamChatCompletion({
 			},
 			token,
 		)
-		.then(undefined, (error) => {
+		.then(undefined, (error: unknown) => {
 			reportSkippedReplayMarkerIfNeeded(
 				prepared,
 				state,
@@ -273,7 +273,7 @@ function reportCopilotContextUsage(
 		completion_tokens: usage.completion_tokens,
 		total_tokens: usage.total_tokens,
 		prompt_tokens_details: {
-			cached_tokens: usage.prompt_cache_hit_tokens ?? 0,
+			cached_tokens: usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens ?? 0,
 		},
 	};
 

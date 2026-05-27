@@ -45,7 +45,6 @@ export function toChatInfo(m: ModelDefinition, hasApiKey: boolean): ModelPickerC
 			toolCalling: m.capabilities.toolCalling,
 			imageInput: m.capabilities.imageInput,
 		},
-		...(m.capabilities.thinking ? { configurationSchema: buildThinkingEffortSchema() } : {}),
 	};
 }
 
@@ -85,7 +84,12 @@ function buildThinkingEffortSchema() {
 }
 
 function resolveDetailKey(m: ModelDefinition): string | undefined {
-	const suffix = m.id.startsWith('deepseek-v4-') ? m.id.slice('deepseek-v4-'.length) : m.id;
+	const suffix =
+		m.id === 'mimo-v2.5'
+			? 'v2.5'
+			: m.id.startsWith('mimo-v2.5-')
+				? m.id.slice('mimo-v2.5-'.length)
+				: m.id;
 	const key = `model.${suffix}.detail`;
 	const translated = t(key);
 	return translated !== key ? key : undefined;
