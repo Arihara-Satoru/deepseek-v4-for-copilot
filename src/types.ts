@@ -68,7 +68,7 @@ export interface MimoRequest {
 	tools?: MimoTool[];
 	tool_choice?: 'none' | 'auto' | 'required';
 	thinking?: { type: 'enabled' | 'disabled' };
-	reasoning_effort?: 'high' | 'max';
+	reasoning_effort?: 'low' | 'medium' | 'high';
 	stream_options?: {
 		include_usage: boolean;
 	};

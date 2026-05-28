@@ -20,6 +20,11 @@ Use `mimo-v2.5-pro` and `mimo-v2.5` directly from the Copilot Chat model picker 
 2. Run `MiMo: Set API Key`.
 3. Paste your MiMo API key.
 4. Open Copilot Chat and pick `MiMo V2.5 Pro` or `MiMo V2.5`.
+5. Open the selected model's configuration in the picker to choose a thinking level:
+   - `Off`: disable thinking for faster responses
+   - `Low`: light reasoning for simpler tasks
+   - `Medium`: default level for most tasks
+   - `High`: deeper reasoning for complex coding and agent tasks
 
 ## Settings
 
