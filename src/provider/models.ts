@@ -12,14 +12,14 @@ import type { ModelDefinition } from '../types';
  * config dropdown in the model picker.
  */
 
-export type ThinkingEffort = 'none' | 'low' | 'medium' | 'high';
+export type ThinkingEffort = 'none' | 'enabled';
 
 export type ModelConfigurationOptions = vscode.ProvideLanguageModelChatResponseOptions & {
 	readonly modelConfiguration?: Record<string, unknown>;
 	readonly configuration?: Record<string, unknown>;
 };
 
-type ThinkingEffortConfigurationSchema = ReturnType<typeof buildThinkingEffortSchema>;
+type ThinkingEffortConfigurationSchema = ReturnType<typeof buildThinkingToggleSchema>;
 
 export type ModelPickerChatInformation = vscode.LanguageModelChatInformation & {
 	readonly isUserSelectable: boolean;
@@ -56,40 +56,25 @@ export function toChatInfo(m: ModelDefinition, hasApiKey: boolean): ModelPickerC
 }
 
 /**
- * 从 Copilot 传回的模型配置中解析思考强度。
+ * 从 Copilot 传回的模型配置中解析思考开关状态。
  * @param options 当前请求携带的模型配置选项。
- * @returns 规范化后的思考强度枚举值。
+ * @returns 规范化后的思考开关状态。
  */
 export function getConfiguredThinkingEffort(options: ModelConfigurationOptions): ThinkingEffort {
 	const configuredEffort =
+		options.modelConfiguration?.thinkingMode ??
+		options.configuration?.thinkingMode ??
 		options.modelConfiguration?.reasoningEffortLevel ??
 		options.configuration?.reasoningEffortLevel ??
 		options.modelConfiguration?.reasoningEffort ??
 		options.configuration?.reasoningEffort;
 
-	if (configuredEffort === 'none') {
+	if (configuredEffort === 'none' || configuredEffort === 'disabled' || configuredEffort === 'off') {
 		return 'none';
 	}
 
-	if (configuredEffort === 'low') {
-		return 'low';
-	}
-
-	if (configuredEffort === 'medium') {
-		return 'medium';
-	}
-
-	// 兼容旧版本缓存值：原先 high 表示“标准”，升级后对应 medium 档位。
-	if (configuredEffort === 'high') {
-		return 'medium';
-	}
-
-	// 兼容旧版本缓存值：原先 max 表示“深度”，升级后对应 high 档位。
-	if (configuredEffort === 'max') {
-		return 'high';
-	}
-
-	return 'medium';
+	// 历史版本中的 low / medium / high / max 一律视为开启思考。
+	return 'enabled';
 }
 
 /**
@@ -100,34 +85,27 @@ export function getConfiguredThinkingEffort(options: ModelConfigurationOptions):
 function resolveConfigurationSchema(
 	model: ModelDefinition,
 ): ThinkingEffortConfigurationSchema | undefined {
-	return model.capabilities.thinking ? buildThinkingEffortSchema() : undefined;
+	return model.capabilities.thinking ? buildThinkingToggleSchema() : undefined;
 }
 
 /**
- * 构建 Copilot 模型选择器中的思考强度配置结构。
+ * 构建 Copilot 模型选择器中的思考开关配置结构。
  * @returns Copilot 可识别的配置 schema。
  */
-function buildThinkingEffortSchema() {
+function buildThinkingToggleSchema() {
 	return {
 		properties: {
-			// 使用新字段名，避免旧缓存中的枚举值与新 API 枚举语义冲突。
-			reasoningEffortLevel: {
+			// 使用新字段名，避免沿用旧的强度枚举缓存。
+			thinkingMode: {
 				type: 'string',
 				title: t('status.thinking'),
-				enum: ['none', 'low', 'medium', 'high'],
-				enumItemLabels: [
-					t('thinking.none'),
-					t('thinking.low'),
-					t('thinking.medium'),
-					t('thinking.high'),
-				],
+				enum: ['none', 'enabled'],
+				enumItemLabels: [t('thinking.none'), t('thinking.enabled')],
 				enumDescriptions: [
 					t('thinking.none.desc'),
-					t('thinking.low.desc'),
-					t('thinking.medium.desc'),
-					t('thinking.high.desc'),
+					t('thinking.enabled.desc'),
 				],
-				default: 'medium',
+				default: 'enabled',
 				group: 'navigation',
 			},
 		},

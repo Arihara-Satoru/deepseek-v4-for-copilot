@@ -35,12 +35,8 @@ const zh: Translations = {
 	'status.thinking': '思考模式',
 	'thinking.none': '停用',
 	'thinking.none.desc': '停用思考，响应更快',
-	'thinking.low': '低',
-	'thinking.low.desc': '轻量思考，适合简单任务',
-	'thinking.medium': '中',
-	'thinking.medium.desc': '默认强度，适合大多数任务',
-	'thinking.high': '高',
-	'thinking.high.desc': '深度推理，适合复杂任务',
+	'thinking.enabled': '开启',
+	'thinking.enabled.desc': '开启思考，适合需要推理与工具决策的任务',
 
 	// Vision
 	'vision.vendorLabel': '提供商：{0}',
@@ -125,12 +121,8 @@ const en: Translations = {
 	'status.thinking': 'Thinking Effort',
 	'thinking.none': 'Off',
 	'thinking.none.desc': 'Disable thinking for faster responses',
-	'thinking.low': 'Low',
-	'thinking.low.desc': 'Light reasoning for simpler tasks',
-	'thinking.medium': 'Medium',
-	'thinking.medium.desc': 'Default level for most tasks',
-	'thinking.high': 'High',
-	'thinking.high.desc': 'Deeper reasoning for complex agent and coding tasks',
+	'thinking.enabled': 'On',
+	'thinking.enabled.desc': 'Enable thinking for reasoning-heavy and agent tasks',
 
 	// Vision
 	// NOTE: vision.unableToDescribe has been moved to consts.ts as
