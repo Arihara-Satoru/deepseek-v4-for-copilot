@@ -3,7 +3,7 @@
   "displayName": "MiMo for Copilot Chat",
   "description": "Pick MiMo V2.5 Pro & V2.5 from the Copilot Chat model picker. Native multimodal, thinking mode, agent tools, BYOK.",
   "icon": "resources/icon.png",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "publisher": "Vizards",
   "license": "MIT",
   "repository": {
