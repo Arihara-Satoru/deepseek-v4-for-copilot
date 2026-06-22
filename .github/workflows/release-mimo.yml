@@ -1,0 +1,79 @@
+name: Release (mimo)
+
+on:
+  push:
+    branches: [mimo]
+
+concurrency:
+  group: release-mimo-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare marketplace README and build
+        run: npm run vscode:prepublish
+
+      - name: Package VSIX
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          npm run package
+
+      - name: Extract version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag already exists
+        id: tag_check
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists, skipping release creation."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Locate VSIX file
+        id: vsix
+        run: |
+          shopt -s nullglob
+          files=(dist/*.vsix)
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "Expected exactly one VSIX in dist, found ${#files[@]}" >&2
+            printf '%s\n' "${files[@]}" >&2
+            exit 1
+          fi
+          echo "path=${files[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release and upload VSIX
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          body: |
+            Auto release from `mimo` branch.
+
+            VSIX 安装方式：
+            1. 在 VS Code 中按 `Ctrl+Shift+P`（或 `Cmd+Shift+P`）
+            2. 选择「Extensions: Install from VSIX...」
+            3. 选择下载的 `.vsix` 文件
+          files: ${{ steps.vsix.outputs.path }}
+          fail_on_unmatched_files: true
