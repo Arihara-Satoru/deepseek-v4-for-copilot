@@ -1,14 +1,14 @@
 import vscode from 'vscode';
 import { setErrorActionUrl, type ErrorActionUrls } from '../client';
 import {
-    CONFIGURE_API_KEY_URI_PATH,
-    SET_VISION_MODEL_URI_PATH,
-    SHOW_LOGS_URI_PATH,
+	CONFIGURE_API_KEY_URI_PATH,
+	SET_VISION_MODEL_URI_PATH,
+	SHOW_LOGS_URI_PATH,
 } from '../consts';
 import { logger } from '../logger';
 import {
-    setProviderNoticeShowLogsUrl,
-    setVisionProxyConfigurationUrl,
+	setProviderNoticeShowLogsUrl,
+	setVisionProxyConfigurationUrl,
 } from '../provider/tools/notices';
 
 interface ActionUrlDefinition {

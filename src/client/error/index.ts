@@ -3,13 +3,13 @@ import { t } from '../../i18n';
 import { safeStringify } from '../../json';
 import { API_PROVIDER_HTTP_ERROR_LINKS, MAX_DIAGNOSTIC_FIELD_LENGTH } from '../consts';
 import type {
-    ApiProviderId,
-    ErrorActionLink,
-    ErrorActionUrls,
-    HttpErrorLinkDefinition,
-    HttpErrorLinkStatusKey,
-    MimoRequestErrorKind,
-    RequestErrorContext,
+	ApiProviderId,
+	ErrorActionLink,
+	ErrorActionUrls,
+	HttpErrorLinkDefinition,
+	HttpErrorLinkStatusKey,
+	MimoRequestErrorKind,
+	RequestErrorContext,
 } from '../types';
 import { getNetworkErrorCauseInfo, getNetworkErrorCode, getNetworkErrorMessage } from './network';
 export type { DeepSeekRequestErrorKind, ErrorActionUrls, MimoRequestErrorKind } from '../types';
@@ -291,7 +291,9 @@ function getRequestDiagnosticMessage(context: RequestErrorContext): string {
 		`stream=${request.stream}`,
 		request.temperature !== undefined ? `temperature=${request.temperature}` : undefined,
 		request.top_p !== undefined ? `topP=${request.top_p}` : undefined,
-		request.max_completion_tokens !== undefined ? `maxTokens=${request.max_completion_tokens}` : undefined,
+		request.max_completion_tokens !== undefined
+			? `maxTokens=${request.max_completion_tokens}`
+			: undefined,
 		request.thinking?.type ? `thinking=${safeStringify(request.thinking.type)}` : undefined,
 		request.reasoning_effort
 			? `reasoningEffort=${safeStringify(request.reasoning_effort)}`

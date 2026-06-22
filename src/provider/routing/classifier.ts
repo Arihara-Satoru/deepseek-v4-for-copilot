@@ -72,7 +72,8 @@ export function classifyDeepSeekRequest(input: {
 	inputMessages?: readonly vscode.LanguageModelChatRequestMessage[];
 }): RequestKind {
 	return classifyRequest({
-		firstText: getMessageTextContent(input.request.messages[0]?.content ?? '') ||
+		firstText:
+			getMessageTextContent(input.request.messages[0]?.content ?? '') ||
 			(input.inputMessages ? getFirstVscodeText(input.inputMessages) : ''),
 		latestUserText:
 			(input.inputMessages ? getLatestVscodeUserText(input.inputMessages) : '') ||

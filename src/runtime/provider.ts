@@ -11,9 +11,7 @@ export async function registerProvider(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('mimo-copilot.setApiKey', () => provider.configureApiKey()),
 		vscode.commands.registerCommand('mimo-copilot.clearApiKey', () => provider.clearApiKey()),
-		vscode.commands.registerCommand('mimo-copilot.setVisionModel', () =>
-			provider.setVisionModel(),
-		),
+		vscode.commands.registerCommand('mimo-copilot.setVisionModel', () => provider.setVisionModel()),
 		vscode.lm.registerLanguageModelChatProvider('mimo', provider),
 	);
 

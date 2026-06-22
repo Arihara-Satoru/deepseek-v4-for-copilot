@@ -1,9 +1,9 @@
 import { EXTERNAL_URLS } from '../consts';
 import type {
-    ApiProviderId,
-    HttpErrorLinkDefinition,
-    HttpErrorLinkStatusKey,
-    NetworkErrorCategory,
+	ApiProviderId,
+	HttpErrorLinkDefinition,
+	HttpErrorLinkStatusKey,
+	NetworkErrorCategory,
 } from './types';
 
 export const OFFICIAL_MIMO_API_HOST = 'api.xiaomimimo.com';

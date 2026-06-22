@@ -56,7 +56,8 @@ function createWelcomeActions(): WelcomeAction[] {
 		},
 		{
 			label: t('welcome.action.openGuide'),
-			run: () => vscode.commands.executeCommand('workbench.action.openWalkthrough', WALKTHROUGH_ID, false),
+			run: () =>
+				vscode.commands.executeCommand('workbench.action.openWalkthrough', WALKTHROUGH_ID, false),
 		},
 		{
 			label: t('welcome.action.openSettings'),

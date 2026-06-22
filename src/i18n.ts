@@ -199,7 +199,8 @@ const zh: Translations = {
 	'extension.welcomeFailed': '欢迎引导加载异常',
 	'extension.openRequestDumpsFolderFailed':
 		'打开请求 dump 目录失败，请运行 "MiMo: 显示日志" 查看详情。',
-	'welcome.message': '欢迎使用 MiMo for Copilot Chat。先完成 API Key 和基础配置，就可以在 Copilot Chat 中直接选择 MiMo 模型。',
+	'welcome.message':
+		'欢迎使用 MiMo for Copilot Chat。先完成 API Key 和基础配置，就可以在 Copilot Chat 中直接选择 MiMo 模型。',
 	'welcome.action.setApiKey': '设置 API Key',
 	'welcome.action.openGuide': '打开引导页',
 	'welcome.action.openSettings': '打开设置',
@@ -217,8 +218,7 @@ const en: Translations = {
 
 	// API Key
 	'auth.apiKeyRequiredDetail': 'Please run MiMo: Set API Key to configure.',
-	'auth.prompt':
-		'Enter your MiMo API key or compatible provider token.',
+	'auth.prompt': 'Enter your MiMo API key or compatible provider token.',
 	'auth.placeholder': 'sk-... or provider token',
 	'auth.emptyValidation': 'API key cannot be empty',
 	'auth.saved': 'MiMo API key saved.',

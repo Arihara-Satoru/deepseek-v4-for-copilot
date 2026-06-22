@@ -1,11 +1,6 @@
 import vscode from 'vscode';
 import { safeStringify } from '../json';
-import type {
-	MimoContentPart,
-	MimoMessage,
-	MimoTool,
-	MimoToolCall,
-} from '../types';
+import type { MimoContentPart, MimoMessage, MimoTool, MimoToolCall } from '../types';
 import { parseFirstReplayMarker } from './replay';
 
 /**
@@ -83,7 +78,11 @@ export function convertMessages(
 				result.push(msg);
 			}
 		} else {
-			const normalizedContent = normalizeUserOrSystemContent(content, contentParts, allowImageInput);
+			const normalizedContent = normalizeUserOrSystemContent(
+				content,
+				contentParts,
+				allowImageInput,
+			);
 			if (normalizedContent) {
 				result.push({
 					role: role as 'user' | 'assistant',

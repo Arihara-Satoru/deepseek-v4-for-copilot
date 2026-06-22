@@ -274,7 +274,8 @@ function reportCopilotContextUsage(
 		completion_tokens: usage.completion_tokens,
 		total_tokens: usage.total_tokens,
 		prompt_tokens_details: {
-			cached_tokens: usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens ?? 0,
+			cached_tokens:
+				usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens ?? 0,
 		},
 	};
 

@@ -81,7 +81,11 @@ export function getConfiguredThinkingEffort(options: ModelConfigurationOptions):
 		options.modelConfiguration?.reasoningEffort ??
 		options.configuration?.reasoningEffort;
 
-	if (configuredEffort === 'none' || configuredEffort === 'disabled' || configuredEffort === 'off') {
+	if (
+		configuredEffort === 'none' ||
+		configuredEffort === 'disabled' ||
+		configuredEffort === 'off'
+	) {
 		return 'none';
 	}
 
@@ -113,10 +117,7 @@ function buildThinkingToggleSchema() {
 				title: t('status.thinking'),
 				enum: ['none', 'enabled'],
 				enumItemLabels: [t('thinking.none'), t('thinking.enabled')],
-				enumDescriptions: [
-					t('thinking.none.desc'),
-					t('thinking.enabled.desc'),
-				],
+				enumDescriptions: [t('thinking.none.desc'), t('thinking.enabled.desc')],
 				default: 'enabled',
 				group: 'navigation',
 			},
