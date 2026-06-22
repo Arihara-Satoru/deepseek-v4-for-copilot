@@ -26,13 +26,15 @@ Use `mimo-v2.5-pro` and `mimo-v2.5` directly from the Copilot Chat model picker 
 
 ## Settings
 
-- `mimo-copilot.baseUrl`: override the API base URL.
-- `mimo-copilot.maxTokens`: cap output tokens.
-- `mimo-copilot.modelIdOverrides`: remap model IDs for compatible gateways.
-- `mimo-copilot.visionModel`: fallback Copilot vision model for text-only MiMo models.
-- `mimo-copilot.visionPrompt`: prompt used by the fallback vision model.
-- `mimo-copilot.debugMode`: `minimal`, `metadata`, or `verbose`.
-- `mimo-copilot.experimental.stabilizeToolList`: experimental tool pre-activation.
+| Setting | Default | Description |
+|---|---|---|
+| `mimo-copilot.baseUrl` | `https://api.xiaomimimo.com/v1` | API endpoint — change for self-hosted / proxied deployments |
+| `mimo-copilot.maxTokens` | `0` | Max output tokens (`0` = no limit). Useful for cost control |
+| `mimo-copilot.modelIdOverrides` | prefilled official ID map | API model IDs to send for MiMo V2.5 / V2.5 Pro. Change only for compatible third-party APIs with different model names |
+| `mimo-copilot.debugMode` | `minimal` | Diagnostic mode: `minimal` for token usage only, `metadata` for privacy-preserving logs, or `verbose` for full request dumps and pipeline snapshots under extension global storage. Full dumps may include sensitive prompt text, tool schemas, file snippets, and image descriptions. Use `MiMo: Open Request Dumps Folder` to open the dump location |
+| `mimo-copilot.visionModel` | *(auto)* | VS Code vision model used to proxy images. Configure from `MiMo: Configure Vision Proxy`; new saves use `vendor/id`, while legacy bare model IDs are still read |
+| `mimo-copilot.visionPrompt` | *(built-in)* | Prompt used to describe image attachments |
+| `mimo-copilot.experimental.stabilizeToolList` | `false` | Experimental. Tries to pre-activate VS Code/Copilot virtual tools so the MiMo API `tools` parameter is more complete and stable across turns. May improve context-cache hit rate when enabled tools change between turns. Can increase input tokens because more function definitions may be included; cache-hit input tokens are cheaper but still count toward usage. Usually leave it off with 64 or fewer enabled tools unless the tool list still changes across turns; do not enable it with more than 128 enabled tools |
 
 ## Isolation notes
 

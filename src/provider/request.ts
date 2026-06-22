@@ -3,22 +3,21 @@ import { AuthManager } from '../auth';
 import { DeepSeekClient, type MimoClient } from '../client';
 import { getApiModelId, getBaseUrl, getMaxTokens } from '../config';
 import { MODELS } from '../consts';
+import { isOfficialMimoBaseUrl } from '../endpoint';
 import { t } from '../i18n';
 import type { DeepSeekRequest } from '../types';
 import { convertMessages, countMessageChars } from './convert';
 import {
-	classifyDeepSeekRequest,
 	dumpDeepSeekRequest,
 	type CacheDiagnosticsRecorder,
 	type CacheDiagnosticsRun,
-	type RequestKind,
 } from './debug';
 import { getConfiguredThinkingEffort, type ModelConfigurationOptions } from './models';
+import { classifyDeepSeekRequest, shouldForceThinkingNone, type RequestKind } from './routing';
 import type { ReplayMarkerMetadata } from './replay';
 import type { ConversationSegment } from './segment';
 import { collectTrailingToolResultIds, prepareRequestTools } from './tools/request';
-import { resolveImageMessages } from './vision/index';
-import type { VisionResolutionResult } from './vision';
+import { resolveImageMessages, type VisionDescriber, type VisionResolutionResult } from './vision';
 
 export interface PreparedChatRequest {
 	client: MimoClient;
@@ -31,6 +30,7 @@ export interface PreparedChatRequest {
 	segment: ConversationSegment;
 	replayMarkerMetadata: ReplayMarkerMetadata;
 	visionMarkerTextChars?: number;
+	initialResponseNotice?: string;
 }
 
 export interface PrepareChatRequestOptions {
@@ -42,7 +42,7 @@ export interface PrepareChatRequestOptions {
 	options: vscode.ProvideLanguageModelChatResponseOptions;
 	token: vscode.CancellationToken;
 	cacheDiagnostics: CacheDiagnosticsRecorder;
-	getVisionModel: () => Promise<vscode.LanguageModelChat | undefined>;
+	getVisionDescriber: () => Promise<VisionDescriber | undefined>;
 }
 
 export async function prepareChatRequest({
@@ -54,23 +54,23 @@ export async function prepareChatRequest({
 	options,
 	token,
 	cacheDiagnostics,
-	getVisionModel,
+	getVisionDescriber,
 }: PrepareChatRequestOptions): Promise<PreparedChatRequest> {
 	const apiKey = await authManager.getApiKey();
 	if (!apiKey) {
 		throw new Error(t('auth.notConfigured'));
 	}
 
-	const client = new DeepSeekClient(getBaseUrl(), apiKey);
+	const baseUrl = getBaseUrl();
+	const client = new DeepSeekClient(baseUrl, apiKey);
 	const modelDef = MODELS.find((m) => m.id === modelInfo.id);
 	const isThinkingModel = modelDef?.capabilities.thinking ?? false;
 	const supportsNativeImageInput = modelDef?.capabilities.imageInput ?? false;
-	const thinkingEffort = getConfiguredThinkingEffort(options as ModelConfigurationOptions);
 	const maxTokens = getMaxTokens();
 
 	const visionResolution = supportsNativeImageInput
 		? createNativeMultimodalResolution(messages)
-		: await resolveImageMessages(messages, token, getVisionModel);
+		: await resolveImageMessages(messages, token, getVisionDescriber);
 	const resolvedMessages = visionResolution.messages;
 	const deepseekMessages = convertMessages(
 		resolvedMessages,
@@ -80,13 +80,28 @@ export async function prepareChatRequest({
 	const tools = prepareRequestTools(modelDef?.capabilities.toolCalling, options);
 
 	const totalRequestChars = countMessageChars(deepseekMessages);
-	const request: DeepSeekRequest = {
+	const baseRequest: DeepSeekRequest = {
 		model: getApiModelId(modelInfo.id),
 		messages: deepseekMessages,
 		stream: true,
 		tools,
 		tool_choice: tools && tools.length > 0 ? ('auto' as const) : undefined,
 		max_completion_tokens: maxTokens,
+	};
+	const requestKind = classifyDeepSeekRequest({
+		request: baseRequest,
+		inputMessages: messages,
+	});
+	const configuredThinkingEffort = getConfiguredThinkingEffort(
+		options as ModelConfigurationOptions,
+	);
+	// Only force helper requests into disabled thinking on the official API.
+	// Custom endpoints keep their configured effort to preserve pre-#137 request shape.
+	const forceNoneThinking =
+		shouldForceThinkingNone(requestKind) && isOfficialMimoBaseUrl(baseUrl);
+	const thinkingEffort = forceNoneThinking ? 'none' : configuredThinkingEffort;
+	const request: DeepSeekRequest = {
+		...baseRequest,
 		...(isThinkingModel
 			? {
 					thinking: {
@@ -95,10 +110,6 @@ export async function prepareChatRequest({
 				}
 			: {}),
 	};
-	const requestKind = classifyDeepSeekRequest({
-		request,
-		inputMessages: messages,
-	});
 	dumpDeepSeekRequest(request, {
 		globalStorageUri,
 		segment,
@@ -111,6 +122,7 @@ export async function prepareChatRequest({
 		resolvedMessages,
 		requestOptions: options,
 		visionModelId: visionResolution.visionModelId,
+		visionProxySource: visionResolution.visionProxySource,
 		visionStats: visionResolution.stats,
 	});
 
@@ -125,6 +137,7 @@ export async function prepareChatRequest({
 		inputMessages: messages,
 		resolvedMessages,
 		visionModelId: visionResolution.visionModelId,
+		visionProxySource: visionResolution.visionProxySource,
 		visionStats: visionResolution.stats,
 	});
 
@@ -139,6 +152,7 @@ export async function prepareChatRequest({
 		segment,
 		replayMarkerMetadata: visionResolution.replayMarkerMetadata,
 		visionMarkerTextChars: visionResolution.stats.markerVisionTextChars || undefined,
+		initialResponseNotice: visionResolution.initialResponseNotice,
 	};
 }
 

@@ -8,3 +8,5 @@ export const MAX_PREFLIGHT_ROUNDS_PER_USER_REQUEST = 3;
 
 export const TOOL_DRIFT_NOTICE_START = '[mimo-copilot-tool-drift-notice-start]: #';
 export const TOOL_DRIFT_NOTICE_END = '[mimo-copilot-tool-drift-notice-end]: #';
+export const VISION_PROXY_NOTICE_START = '[mimo-copilot-vision-proxy-notice-start]: #';
+export const VISION_PROXY_NOTICE_END = '[mimo-copilot-vision-proxy-notice-end]: #';

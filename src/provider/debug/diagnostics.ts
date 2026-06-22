@@ -5,18 +5,18 @@ import { LANGUAGE_MODEL_CHAT_SYSTEM_ROLE } from '../../consts';
 import { logger } from '../../logger';
 import type { DeepSeekMessage, DeepSeekRequest, DeepSeekTool, DeepSeekUsage } from '../../types';
 import { getMessageTextContent } from '../message-content';
-import { REPLAY_MARKER_MIME, parseFirstReplayMarker } from '../replay';
-import type { ConversationSegment } from '../segment';
-import { ACTIVATE_TOOL_PREFIX } from '../tools/consts';
-import type { ActivatePreflightInspection } from '../tools/preflight';
-import { IMAGE_DESCRIPTION_UNAVAILABLE } from '../vision/consts';
-import type { VisionResolutionStats as VisionPipelineStats } from '../vision/index';
 import {
 	classifyDeepSeekRequest,
 	formatModelFields,
 	formatRequestLogLine,
 	type RequestKind,
-} from './classifier';
+} from '../routing';
+import { REPLAY_MARKER_MIME, parseFirstReplayMarker } from '../replay';
+import type { ConversationSegment } from '../segment';
+import { ACTIVATE_TOOL_PREFIX } from '../tools/consts';
+import type { ActivatePreflightInspection } from '../tools/preflight';
+import { IMAGE_DESCRIPTION_UNAVAILABLE } from '../vision/consts';
+import type { VisionProxySource, VisionResolutionStats as VisionPipelineStats } from '../vision';
 
 const LARGE_MESSAGE_CHARS = 10_000;
 const HASH_WINDOW_CHARS = 2_048;
@@ -175,6 +175,7 @@ export interface BeginCacheDiagnosticsOptions {
 	inputMessages: readonly vscode.LanguageModelChatRequestMessage[];
 	resolvedMessages: readonly vscode.LanguageModelChatRequestMessage[];
 	visionModelId?: string;
+	visionProxySource?: VisionProxySource;
 	visionStats?: VisionPipelineStats;
 }
 
@@ -296,6 +297,7 @@ interface VisionMessageStats {
 	droppedImageParts: number;
 	historyDescriptionMessages: number;
 	visionModelId?: string;
+	visionProxySource?: VisionProxySource;
 }
 
 interface HostPromptTrace {
@@ -386,6 +388,7 @@ class DefaultCacheDiagnosticsRecorder implements CacheDiagnosticsRecorder {
 			options.inputMessages,
 			options.resolvedMessages,
 			options.visionModelId,
+			options.visionProxySource,
 		);
 
 		logger.info(
@@ -825,6 +828,7 @@ function summarizeVisionResolution(
 	inputMessages: readonly vscode.LanguageModelChatRequestMessage[],
 	resolvedMessages: readonly vscode.LanguageModelChatRequestMessage[],
 	visionModelId: string | undefined,
+	visionProxySource: VisionProxySource | undefined,
 ): VisionMessageStats {
 	const stats: VisionMessageStats = {
 		inputImageParts: 0,
@@ -834,6 +838,7 @@ function summarizeVisionResolution(
 		droppedImageParts: 0,
 		historyDescriptionMessages: 0,
 		visionModelId,
+		visionProxySource,
 	};
 
 	for (const [index, message] of inputMessages.entries()) {
@@ -933,6 +938,9 @@ function formatVisionTrace(
 	}
 
 	parts.push(`model=${visionModel}`);
+	if (stats.visionProxySource) {
+		parts.push(`source=${stats.visionProxySource}`);
+	}
 	appendNumberIfNonZero(parts, 'historyDescriptions', stats.historyDescriptionMessages);
 	return parts.join(' ') + note;
 }

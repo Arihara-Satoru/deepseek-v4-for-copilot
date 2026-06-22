@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.6.2](https://github.com/Vizards/deepseek-v4-for-copilot/compare/v0.6.1...v0.6.2) (2026-06-16)
+
+
+### Bug Fixes
+
+* **provider:** mark DeepSeek models as BYOK ([#162](https://github.com/Vizards/deepseek-v4-for-copilot/issues/162)) ([50ff6ba](https://github.com/Vizards/deepseek-v4-for-copilot/commit/50ff6ba85b2c8d7911d7f6dddb6492c2ebdb1b17))
+* **vision:** disambiguate VS Code LM model selection ([#161](https://github.com/Vizards/deepseek-v4-for-copilot/issues/161)) ([1d7b668](https://github.com/Vizards/deepseek-v4-for-copilot/commit/1d7b6685649b1ee05f3f49f7cd2008b237734c18)), closes [#149](https://github.com/Vizards/deepseek-v4-for-copilot/issues/149)
+
+## [0.6.1](https://github.com/Vizards/deepseek-v4-for-copilot/compare/v0.6.0...v0.6.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* **provider:** dedupe streaming usage reports ([#145](https://github.com/Vizards/deepseek-v4-for-copilot/issues/145)) ([b3cbdfa](https://github.com/Vizards/deepseek-v4-for-copilot/commit/b3cbdfa8be7e3ee2139e2763014cf1b391e7cf80))
+* **provider:** disable thinking for internal helper requests ([#137](https://github.com/Vizards/deepseek-v4-for-copilot/issues/137)) ([6809989](https://github.com/Vizards/deepseek-v4-for-copilot/commit/680998971fb01ef9d88f70fa6bdd7709a510095c))
+
+## [0.6.0](https://github.com/Vizards/deepseek-v4-for-copilot/compare/v0.5.3...v0.6.0) (2026-06-03)
+
+
+### Features
+
+* **provider:** show DeepSeek pricing in model picker ([#128](https://github.com/Vizards/deepseek-v4-for-copilot/issues/128)) ([959bd0d](https://github.com/Vizards/deepseek-v4-for-copilot/commit/959bd0de3be29cbc5e55540c113d74d09c7cb23c))
+* **vision:** add configurable vision proxy ([#127](https://github.com/Vizards/deepseek-v4-for-copilot/issues/127)) ([f5d9b8d](https://github.com/Vizards/deepseek-v4-for-copilot/commit/f5d9b8d35dc50c8c3fba307814d6af682e1ac1b1))
+
+
+### Bug Fixes
+
+* **client:** improve request failure diagnostics ([#109](https://github.com/Vizards/deepseek-v4-for-copilot/issues/109)) ([40cc542](https://github.com/Vizards/deepseek-v4-for-copilot/commit/40cc542bfc7cdf266f857e30ecb4ad35a2f439f1))
+
 ## [0.5.3](https://github.com/Vizards/deepseek-v4-for-copilot/compare/v0.5.2...v0.5.3) (2026-05-25)
 
 

@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "mimo-copilot.command.setApiKey": "MiMo: Set API Key",
   "mimo-copilot.command.getApiKey": "MiMo: Get API Key",
   "mimo-copilot.command.clearApiKey": "MiMo: Clear API Key",
@@ -29,6 +30,6 @@
   "mimo-copilot.config.modelIdOverrides.description": "Override the API model ID sent for each MiMo model. Change only when using a compatible third-party API that uses different model names.",
   "mimo-copilot.config.modelIdOverrides.mimo-v2.5.description": "API model ID for MiMo V2.5",
   "mimo-copilot.config.modelIdOverrides.mimo-v2.5-pro.description": "API model ID for MiMo V2.5 Pro",
-  "mimo-copilot.config.visionModel.description": "Fallback Copilot vision model used only when the selected MiMo model is text-only.",
-  "mimo-copilot.config.visionPrompt.description": "Prompt sent to the fallback vision model when describing image attachments for text-only MiMo models."
+  "mimo-copilot.config.visionModel.description": "Compatibility setting managed by [Configure Vision Proxy](command:mimo-copilot.setVisionModel). Stores the selected VS Code vision model as `vendor/id` when that source is active. Legacy bare model IDs are read for compatibility.",
+  "mimo-copilot.config.visionPrompt.description": "Prompt sent to the vision proxy model when describing image attachments before forwarding them to MiMo.\n\n[Configure Vision Proxy](command:mimo-copilot.setVisionModel)"
 }

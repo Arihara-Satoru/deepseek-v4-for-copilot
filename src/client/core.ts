@@ -5,9 +5,10 @@ import type {
 	MimoRequest,
 	MimoStreamChunk,
 	MimoToolCall,
+	DeepSeekUsage,
 	StreamCallbacks,
 } from '../types';
-import { createHttpError, normalizeRequestError } from './error';
+import { createHttpError, formatRequestError, normalizeRequestError } from './error';
 
 /**
  * 轻量级 SSE 流式 MiMo 客户端。
@@ -54,7 +55,7 @@ export class MimoClient {
 			});
 
 			if (!response.ok) {
-				throw await createHttpError(response, this.baseUrl);
+				throw await createHttpError(response, { baseUrl: this.baseUrl, request });
 			}
 
 			if (!response.body) {
@@ -64,6 +65,7 @@ export class MimoClient {
 			const reader = response.body.getReader();
 			const decoder = new TextDecoder();
 			let buffer = '';
+			let latestUsage: DeepSeekUsage | undefined;
 
 			// 按 index 聚合分片工具调用，直到 stop/tool_calls 再一次性吐出。
 			const pendingToolCalls = new Map<number, MimoToolCall>();
@@ -97,6 +99,7 @@ export class MimoClient {
 							callbacks.onToolCall(tc);
 						}
 						pendingToolCalls.clear();
+						reportFinalUsage(callbacks, latestUsage);
 						callbacks.onDone();
 						return;
 					}
@@ -110,9 +113,10 @@ export class MimoClient {
 						const chunk: MimoStreamChunk = JSON.parse(jsonStr);
 						const choice = chunk.choices?.[0];
 
-						// Capture usage stats from the API for token-count calibration.
-						if (chunk.usage && callbacks.onUsage) {
-							callbacks.onUsage(chunk.usage);
+						// Some OpenAI-compatible providers emit usage on every streaming chunk.
+						// Keep only the latest value and report it once when the stream completes.
+						if (chunk.usage) {
+							latestUsage = chunk.usage;
 						}
 
 						if (!choice) {
@@ -166,13 +170,14 @@ export class MimoClient {
 				}
 			}
 
+			reportFinalUsage(callbacks, latestUsage);
 			callbacks.onDone();
 		} catch (error) {
 			if (isAbortError(error) && cancellationToken?.isCancellationRequested) {
 				return;
 			}
-			const normalizedError = normalizeRequestError(error);
-			logger.error('MiMo request failed:', getDiagnosticMessage(normalizedError), error);
+			const normalizedError = normalizeRequestError(error, { baseUrl: this.baseUrl, request });
+			logger.error('MiMo request failed:', formatRequestError(normalizedError));
 			callbacks.onError(normalizedError);
 		} finally {
 			cancelListener?.dispose();
@@ -185,12 +190,13 @@ export class MimoClient {
  */
 export const DeepSeekClient = MimoClient;
 
-function isAbortError(error: unknown): boolean {
-	return error instanceof Error && error.name === 'AbortError';
+function reportFinalUsage(callbacks: StreamCallbacks, usage: DeepSeekUsage | undefined): void {
+	if (!usage || !callbacks.onUsage) {
+		return;
+	}
+	callbacks.onUsage(usage);
 }
 
-function getDiagnosticMessage(error: Error): string {
-	return 'diagnosticMessage' in error && typeof error.diagnosticMessage === 'string'
-		? error.diagnosticMessage
-		: error.message;
+function isAbortError(error: unknown): boolean {
+	return error instanceof Error && error.name === 'AbortError';
 }

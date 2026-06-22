@@ -4,18 +4,16 @@ import { getStabilizeToolListEnabled } from '../config';
 import { API_KEY_SECRET, CONFIG_SECTION, MODELS } from '../consts';
 import { t } from '../i18n';
 import { logger } from '../logger';
-import {
-	classifyProviderRequest,
-	createCacheDiagnosticsRecorder,
-	dumpProviderInput,
-} from './debug';
+import { createCacheDiagnosticsRecorder, dumpProviderInput } from './debug';
 import { toChatInfo } from './models';
+import { BalanceCurrencyResolver } from './pricing/currency';
 import { prepareChatRequest } from './request';
+import { classifyProviderRequest } from './routing';
 import { resolveConversationSegment } from './segment';
 import { streamChatCompletion } from './stream';
 import { estimateTokenCount } from './tokens';
 import { processToolFlow } from './tools/flow';
-import { createVisionModelGetter, setVisionProxyModel } from './vision/index';
+import { createVisionService } from './vision';
 
 /**
  * MiMo Chat Provider —— 实现 vscode.LanguageModelChatProvider，
@@ -32,8 +30,9 @@ export class MimoChatProvider implements vscode.LanguageModelChatProvider {
 
 	private readonly cacheDiagnostics = createCacheDiagnosticsRecorder();
 
-	/** Vision proxy: resolver + cached model. */
-	private readonly vision = createVisionModelGetter();
+	/** Vision proxy: internal bridge + VS Code LM fallback. */
+	private readonly vision: ReturnType<typeof createVisionService>;
+	private readonly balanceCurrencyResolver: BalanceCurrencyResolver;
 
 	/**
 	 * Adaptive chars-per-token ratio, calibrated from actual usage data.
@@ -44,13 +43,20 @@ export class MimoChatProvider implements vscode.LanguageModelChatProvider {
 	constructor(context: vscode.ExtensionContext) {
 		this.authManager = new AuthManager(context);
 		this.globalStorageUri = context.globalStorageUri;
+		this.vision = createVisionService(context);
+		this.balanceCurrencyResolver = new BalanceCurrencyResolver(context, this.authManager, () =>
+			this.onDidChangeLanguageModelChatInformationEmitter.fire(),
+		);
 
 		context.subscriptions.push(
 			this.onDidChangeLanguageModelChatInformationEmitter,
 			// 只监听 MiMo 自己的配置变更，避免和旧 DeepSeek 扩展互相联动。
 			vscode.workspace.onDidChangeConfiguration((e) => {
-				if (e.affectsConfiguration(`${CONFIG_SECTION}.apiKey`)) {
-					this.onDidChangeLanguageModelChatInformationEmitter.fire();
+				if (
+					e.affectsConfiguration(`${CONFIG_SECTION}.apiKey`) ||
+					e.affectsConfiguration(`${CONFIG_SECTION}.baseUrl`)
+				) {
+					this.invalidateCurrencyAndRefreshModels();
 				}
 
 				if (e.affectsConfiguration(`${CONFIG_SECTION}.visionModel`)) {
@@ -62,7 +68,7 @@ export class MimoChatProvider implements vscode.LanguageModelChatProvider {
 			// model picker so the warning state stays in sync.
 			context.secrets.onDidChange((e) => {
 				if (e.key === API_KEY_SECRET) {
-					this.onDidChangeLanguageModelChatInformationEmitter.fire();
+					this.invalidateCurrencyAndRefreshModels();
 				}
 			}),
 		);
@@ -73,13 +79,13 @@ export class MimoChatProvider implements vscode.LanguageModelChatProvider {
 	async configureApiKey(): Promise<void> {
 		const saved = await this.authManager.promptForApiKey();
 		if (saved) {
-			this.onDidChangeLanguageModelChatInformationEmitter.fire();
+			this.invalidateCurrencyAndRefreshModels();
 		}
 	}
 
 	async clearApiKey(): Promise<void> {
 		await this.authManager.deleteApiKey();
-		this.onDidChangeLanguageModelChatInformationEmitter.fire();
+		this.invalidateCurrencyAndRefreshModels();
 		vscode.window.showInformationMessage(t('auth.removed'));
 	}
 
@@ -90,6 +96,13 @@ export class MimoChatProvider implements vscode.LanguageModelChatProvider {
 	/** Force Copilot Chat to re-query model information (including configurationSchema). */
 	refreshModelPicker(): void {
 		this.onDidChangeLanguageModelChatInformationEmitter.fire();
+	}
+
+	private invalidateCurrencyAndRefreshModels(): void {
+		void this.balanceCurrencyResolver
+			.invalidate()
+			.catch((error) => logger.warn('Failed to invalidate DeepSeek balance currency', error))
+			.finally(() => this.onDidChangeLanguageModelChatInformationEmitter.fire());
 	}
 
 	async prepareForDeactivate(): Promise<void> {
@@ -108,9 +121,8 @@ export class MimoChatProvider implements vscode.LanguageModelChatProvider {
 		}
 	}
 
-	/** See provider/vision */
-	async setVisionProxyModel(): Promise<void> {
-		await setVisionProxyModel();
+	async setVisionModel(): Promise<void> {
+		await this.vision.openConfiguration();
 	}
 
 	// ---- LanguageModelChatProvider ----
@@ -124,7 +136,11 @@ export class MimoChatProvider implements vscode.LanguageModelChatProvider {
 		}
 
 		const hasKey = await this.authManager.hasApiKey();
-		return MODELS.map((model) => toChatInfo(model, hasKey));
+		const pricingCurrency = this.balanceCurrencyResolver.getDisplayCurrency();
+		if (hasKey) {
+			this.balanceCurrencyResolver.refreshInBackground();
+		}
+		return MODELS.map((model) => toChatInfo(model, hasKey, pricingCurrency));
 	}
 
 	async provideLanguageModelChatResponse(
@@ -169,14 +185,17 @@ export class MimoChatProvider implements vscode.LanguageModelChatProvider {
 			options,
 			token,
 			cacheDiagnostics: this.cacheDiagnostics,
-			getVisionModel: () => this.vision.get(),
+			getVisionDescriber: () => this.vision.get(),
 		});
 
 		return streamChatCompletion({
 			prepared,
 			progress,
 			token,
-			initialResponseNotice: toolFlow.initialResponseNotice,
+			initialResponseNotice: joinInitialResponseNotices(
+				toolFlow.initialResponseNotice,
+				prepared.initialResponseNotice,
+			),
 			getCharsPerToken: () => this.charsPerToken,
 			setCharsPerToken: (charsPerToken) => {
 				this.charsPerToken = charsPerToken;
@@ -191,4 +210,9 @@ export class MimoChatProvider implements vscode.LanguageModelChatProvider {
 	): Promise<number> {
 		return estimateTokenCount(text, this.charsPerToken);
 	}
+}
+
+function joinInitialResponseNotices(...notices: (string | undefined)[]): string | undefined {
+	const joined = notices.filter((notice) => notice && notice.trim().length > 0).join('\n');
+	return joined || undefined;
 }

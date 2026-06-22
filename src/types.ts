@@ -113,6 +113,16 @@ export interface StreamCallbacks {
 
 // ---- Model definitions ----
 
+export type PricingCurrency = 'USD' | 'CNY';
+
+export type PriceCategory = 'low' | 'medium' | 'high' | 'very_high';
+
+export interface ModelPricing {
+	cacheHitInput: number;
+	cacheMissInput: number;
+	output: number;
+}
+
 export interface ModelDefinition {
 	id: string;
 	name: string;
@@ -127,6 +137,8 @@ export interface ModelDefinition {
 		thinking: boolean;
 	};
 	requiresThinkingParam: boolean;
+	pricing?: Readonly<Record<PricingCurrency, ModelPricing>>;
+	priceCategory?: PriceCategory;
 }
 
 /**

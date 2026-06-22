@@ -1,10 +1,8 @@
-import { t } from '../i18n';
-import {
-	API_PROVIDER_HTTP_ERROR_LINKS,
-	MAX_DIAGNOSTIC_FIELD_LENGTH,
-	NETWORK_ERROR_CATEGORY_BY_CODE,
-	OFFICIAL_MIMO_API_HOST,
-} from './consts';
+import { isOfficialMimoBaseUrl } from '../../endpoint';
+import { t } from '../../i18n';
+import { safeStringify } from '../../json';
+import { API_PROVIDER_HTTP_ERROR_LINKS, MAX_DIAGNOSTIC_FIELD_LENGTH } from '../consts';
+import { getNetworkErrorCauseInfo, getNetworkErrorCode, getNetworkErrorMessage } from './network';
 import type {
 	ApiProviderId,
 	ErrorActionLink,
@@ -12,9 +10,9 @@ import type {
 	HttpErrorLinkDefinition,
 	HttpErrorLinkStatusKey,
 	MimoRequestErrorKind,
-	NetworkErrorCategory,
-} from './types';
-export type { DeepSeekRequestErrorKind, ErrorActionUrls, MimoRequestErrorKind } from './types';
+	RequestErrorContext,
+} from '../types';
+export type { DeepSeekRequestErrorKind, ErrorActionUrls, MimoRequestErrorKind } from '../types';
 
 const errorActionUrlStore = (() => {
 	let current: ErrorActionUrls = {};
@@ -62,23 +60,14 @@ export class MimoRequestError extends Error {
 
 export async function createHttpError(
 	response: Response,
-	baseUrl: string,
+	context: RequestErrorContext,
 ): Promise<MimoRequestError> {
+	const { baseUrl } = context;
 	const responseText = await response.text();
 	const serverMessage = extractServerMessage(responseText);
 	const userSummary = getHttpErrorMessage(
 		response.status,
 		getCreateApiKeyUrl(response.status, baseUrl),
-	);
-	const diagnosticMessage = joinDiagnosticParts(
-		`kind=http`,
-		`status=${response.status}`,
-		`baseUrl=${truncateSingleLine(baseUrl)}`,
-		`statusText=${response.statusText || 'unknown'}`,
-		serverMessage ? `serverMessage=${serverMessage}` : undefined,
-		responseText && responseText !== serverMessage
-			? `body=${truncateSingleLine(responseText)}`
-			: undefined,
 	);
 
 	return new MimoRequestError({
@@ -88,11 +77,20 @@ export async function createHttpError(
 		baseUrl,
 		status: response.status,
 		code: `HTTP_${response.status}`,
-		diagnosticMessage,
+		diagnosticMessage: joinDiagnosticParts(
+			`kind=http`,
+			`status=${response.status}`,
+			getRequestDiagnosticMessage(context),
+			`statusText=${safeStringify(response.statusText || 'unknown')}`,
+			serverMessage ? `serverMessage=${safeStringify(serverMessage)}` : undefined,
+			responseText && responseText !== serverMessage
+				? `body=${safeStringify(truncateSingleLine(responseText))}`
+				: undefined,
+		),
 	});
 }
 
-export function normalizeRequestError(error: unknown): Error {
+export function normalizeRequestError(error: unknown, context: RequestErrorContext): Error {
 	if (error instanceof DeepSeekRequestError) {
 		return error;
 	}
@@ -103,16 +101,21 @@ export function normalizeRequestError(error: unknown): Error {
 			message: `MiMo request failed with a non-Error value: ${value}`,
 			userSummary: t('error.unknown', value),
 			kind: 'unknown',
-			diagnosticMessage: `kind=unknown error=${value}`,
+			baseUrl: context.baseUrl,
+			diagnosticMessage: joinDiagnosticParts(
+				`kind=unknown`,
+				getRequestDiagnosticMessage(context),
+				`error=${safeStringify(value)}`,
+			),
 		});
 	}
 
-	const causeInfo = getCauseInfo(error);
+	const causeInfo = getNetworkErrorCauseInfo(error);
 	if (!causeInfo) {
 		return error;
 	}
 
-	const code = causeInfo.code ?? causeInfo.name;
+	const code = getNetworkErrorCode(causeInfo);
 	const userSummary = getNetworkErrorMessage(code);
 	const enhanced = new MimoRequestError({
 		message: code
@@ -120,18 +123,28 @@ export function normalizeRequestError(error: unknown): Error {
 			: 'MiMo request failed due to a network error',
 		userSummary,
 		kind: 'network',
+		baseUrl: context.baseUrl,
 		code,
 		cause: error,
 		diagnosticMessage: joinDiagnosticParts(
 			`kind=network`,
 			code ? `code=${code}` : undefined,
-			causeInfo.name ? `name=${causeInfo.name}` : undefined,
-			`message=${truncateSingleLine(error.message)}`,
-			causeInfo.message ? `cause=${causeInfo.message}` : undefined,
+			getRequestDiagnosticMessage(context),
+			`message=${safeStringify(truncateSingleLine(error.message))}`,
+			`cause=${causeInfo.value}`,
 		),
 	});
 	enhanced.stack = error.stack;
 	return enhanced;
+}
+
+export function formatRequestError(error: Error): string {
+	const diagnosticMessage = joinDiagnosticParts(
+		error instanceof DeepSeekRequestError
+			? error.diagnosticMessage
+			: `message=${safeStringify(error.message)}`,
+	);
+	return error.stack ? `${diagnosticMessage}\n${error.stack}` : diagnosticMessage;
 }
 
 export function createUserFacingError(error: Error): Error {
@@ -167,53 +180,6 @@ function getHttpErrorMessage(status: number, createApiKeyUrl?: string): string {
 	}
 }
 
-function getNetworkErrorMessage(code: string | undefined): string {
-	const errorCode = code ?? 'UNKNOWN';
-
-	switch (getNetworkErrorCategory(code)) {
-		case 'dns':
-			return t('error.network.dns', errorCode);
-		case 'unreachable':
-			return t('error.network.unreachable', errorCode);
-		case 'interrupted':
-			return t('error.network.interrupted', errorCode);
-		case 'timeout':
-			return t('error.network.timeout', errorCode);
-		case 'tls':
-			return t('error.network.tls', errorCode);
-		case 'aborted':
-			return t('error.network.aborted', errorCode);
-		case 'protocol':
-			return t('error.network.protocol', errorCode);
-		case 'configuration':
-			return t('error.network.configuration', errorCode);
-		case 'generic':
-			return t('error.network.generic', errorCode);
-	}
-}
-
-function getNetworkErrorCategory(code: string | undefined): NetworkErrorCategory {
-	if (!code) {
-		return 'generic';
-	}
-
-	if (isKnownNetworkErrorCode(code)) {
-		return NETWORK_ERROR_CATEGORY_BY_CODE[code];
-	}
-
-	if (code.startsWith('ERR_TLS_') || code.startsWith('ERR_SSL_')) {
-		return 'tls';
-	}
-
-	return code.startsWith('HPE_') ? 'protocol' : 'generic';
-}
-
-function isKnownNetworkErrorCode(
-	code: string,
-): code is keyof typeof NETWORK_ERROR_CATEGORY_BY_CODE {
-	return Object.hasOwn(NETWORK_ERROR_CATEGORY_BY_CODE, code);
-}
-
 function extractServerMessage(responseText: string): string | undefined {
 	const trimmed = responseText.trim();
 	if (!trimmed) {
@@ -231,36 +197,6 @@ function extractServerMessage(responseText: string): string | undefined {
 	} catch {
 		return truncateSingleLine(trimmed);
 	}
-}
-
-function getCauseInfo(
-	error: Error,
-): { code?: string; name?: string; message?: string } | undefined {
-	const cause = (error as Error & { cause?: unknown }).cause;
-	if (!cause) {
-		return undefined;
-	}
-
-	if (cause instanceof Error) {
-		return {
-			code: getStringProperty(cause, 'code'),
-			name: cause.name,
-			message:
-				cause.message && cause.message !== error.message
-					? truncateSingleLine(cause.message)
-					: undefined,
-		};
-	}
-
-	if (typeof cause === 'object') {
-		return {
-			code: getStringProperty(cause, 'code'),
-			name: getStringProperty(cause, 'name'),
-			message: truncateOptional(getStringProperty(cause, 'message')),
-		};
-	}
-
-	return { message: truncateSingleLine(String(cause)) };
 }
 
 function getObjectProperty(value: unknown, key: string): unknown {
@@ -347,6 +283,26 @@ function getDiagnosticErrorActions(actionUrls: ErrorActionUrls): readonly ErrorA
 	return url ? [{ labelKey: 'error.action.viewDetails', url }] : [];
 }
 
+function getRequestDiagnosticMessage(context: RequestErrorContext): string {
+	const { request } = context;
+	return joinDiagnosticParts(
+		`baseUrl=${safeStringify(context.baseUrl)}`,
+		`model=${safeStringify(request.model)}`,
+		`stream=${request.stream}`,
+		request.temperature !== undefined ? `temperature=${request.temperature}` : undefined,
+		request.top_p !== undefined ? `topP=${request.top_p}` : undefined,
+		request.max_tokens !== undefined ? `maxTokens=${request.max_tokens}` : undefined,
+		request.thinking?.type ? `thinking=${safeStringify(request.thinking.type)}` : undefined,
+		request.reasoning_effort
+			? `reasoningEffort=${safeStringify(request.reasoning_effort)}`
+			: undefined,
+		request.tool_choice ? `toolChoice=${safeStringify(request.tool_choice)}` : undefined,
+		`toolCount=${request.tools?.length ?? 0}`,
+		`messageCount=${request.messages.length}`,
+		`messageChars=${request.messages.reduce((total, message) => total + message.content.length, 0)}`,
+	);
+}
+
 function joinDiagnosticParts(...parts: (string | undefined)[]): string {
 	return parts.filter(Boolean).join(' ');
 }
@@ -362,17 +318,8 @@ function escapeBoldText(value: string): string {
 	return value.replace(/\*/g, '\\*');
 }
 
-function truncateOptional(value: string | undefined): string | undefined {
-	return value ? truncateSingleLine(value) : undefined;
-}
-
 function identifyApiProvider(baseUrl: string): ApiProviderId | undefined {
-	try {
-		const hostname = new URL(baseUrl).hostname.toLowerCase();
-		return hostname === OFFICIAL_MIMO_API_HOST ? 'mimo' : undefined;
-	} catch {
-		return undefined;
-	}
+	return isOfficialMimoBaseUrl(baseUrl) ? 'mimo' : undefined;
 }
 
 function getHttpErrorLinkStatusKey(status: number): HttpErrorLinkStatusKey | undefined {
