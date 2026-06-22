@@ -9,6 +9,7 @@ import { safeStringify, toWellFormedString } from '../../json';
 import { logger } from '../../logger';
 import type { DeepSeekMessage, DeepSeekRequest } from '../../types';
 import { getMessageTextContent } from '../message-content';
+import { parseReplayMarkerData, REPLAY_MARKER_MIME } from '../replay';
 import {
 	classifyDeepSeekRequest,
 	classifyProviderRequest,
@@ -16,7 +17,6 @@ import {
 	formatRequestLogLine,
 	type RequestKind,
 } from '../routing';
-import { parseReplayMarkerData, REPLAY_MARKER_MIME } from '../replay';
 import type { ConversationSegment } from '../segment';
 import { ACTIVATE_TOOL_PREFIX } from '../tools/consts';
 import type { VisionProxySource, VisionResolutionStats } from '../vision';

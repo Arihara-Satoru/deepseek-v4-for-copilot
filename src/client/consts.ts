@@ -1,10 +1,10 @@
-import type {
-	ApiProviderId,
-	HttpErrorLinkDefinition,
-	HttpErrorLinkStatusKey,
-	NetworkErrorCategory,
-} from './types';
 import { EXTERNAL_URLS } from '../consts';
+import type {
+    ApiProviderId,
+    HttpErrorLinkDefinition,
+    HttpErrorLinkStatusKey,
+    NetworkErrorCategory,
+} from './types';
 
 export const OFFICIAL_MIMO_API_HOST = 'api.xiaomimimo.com';
 export const MAX_DIAGNOSTIC_FIELD_LENGTH = 300;
