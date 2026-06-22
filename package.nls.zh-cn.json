@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
   "mimo-copilot.command.setApiKey": "MiMo: 设置 API Key",
   "mimo-copilot.command.getApiKey": "MiMo: 获取 API Key",
   "mimo-copilot.command.clearApiKey": "MiMo: 清除 API Key",
